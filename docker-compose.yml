@@ -1,0 +1,170 @@
+version: '3.8'
+
+services:
+  # Service Discovery
+  discovery-server:
+    image: discovery-server
+    build: ./discovery-server
+    ports:
+      - "8761:8761"
+    networks:
+      - microservices-network
+
+  # Base de données
+  auth-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: authdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: toor
+    ports:
+      - "5433:5432"
+    networks:
+      - microservices-network
+
+  task-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: taskdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: toor
+    ports:
+      - "5434:5432"
+    networks:
+      - microservices-network
+
+  history-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: historydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: toor
+    ports:
+      - "5435:5432"
+    networks:
+      - microservices-network
+
+  notification-db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: notificationdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: toor
+    ports:
+      - "5436:5432"
+    networks:
+      - microservices-network
+
+  # Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    networks:
+      - microservices-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+    networks:
+      - microservices-network
+
+  shared-library:
+    build:
+      context: .
+      dockerfile: shared-library/Dockerfile
+    networks:
+      - microservices-network
+      
+  # Microservices
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "3002:3002"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/authdb
+    depends_on:
+      - discovery-server
+      - auth-db
+    networks:
+      - microservices-network
+
+  task-service:
+    build: ./task-service
+    ports:
+      - "3000:3000"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://task-db:5432/taskdb
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+    depends_on:
+      - discovery-server
+      - task-db
+      - kafka
+    networks:
+      - microservices-network
+
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "3003:3003"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+    depends_on:
+      - discovery-server
+      - kafka
+    networks:
+      - microservices-network
+
+  history-service:
+    build: ./history-service
+    ports:
+      - "3002:3002"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      SPRING_DATASOURCE_URL: jdbc:postgresql://history-db:5432/historydb
+    depends_on:
+      - discovery-server
+      - history-db
+    networks:
+      - microservices-network
+
+  gateway-service:
+    build: ./gateway-service
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+    depends_on:
+      - discovery-server
+      - auth-service
+      - task-service
+    networks:
+      - microservices-network
+
+  # Redis pour Rate Limiting
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge
