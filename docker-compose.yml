@@ -4,7 +4,7 @@ services:
   # Service Discovery
   discovery-server:
     image: discovery-server
-    build: ./discovery-server
+    pull_policy: never
     ports:
       - "8761:8761"
     networks:
@@ -82,16 +82,10 @@ services:
     networks:
       - microservices-network
 
-  shared-library:
-    build:
-      context: .
-      dockerfile: shared-library/Dockerfile
-    networks:
-      - microservices-network
-      
   # Microservices
   auth-service:
-    build: ./auth-service
+    image: auth-service
+    pull_policy: never
     ports:
       - "3002:3002"
     environment:
@@ -104,7 +98,8 @@ services:
       - microservices-network
 
   task-service:
-    build: ./task-service
+    image: task-service
+    pull_policy: never
     ports:
       - "3000:3000"
     environment:
@@ -119,7 +114,8 @@ services:
       - microservices-network
 
   notification-service:
-    build: ./notification-service
+    image: notification-service
+    pull_policy: never
     ports:
       - "3003:3003"
     environment:
@@ -132,7 +128,8 @@ services:
       - microservices-network
 
   history-service:
-    build: ./history-service
+    image: history-service
+    pull_policy: never
     ports:
       - "3001:3001"
     environment:
@@ -145,7 +142,8 @@ services:
       - microservices-network
 
   gateway-service:
-    build: ./gateway-service
+    image: gateway-service
+    pull_policy: never
     ports:
       - "8080:8080"
     environment:
