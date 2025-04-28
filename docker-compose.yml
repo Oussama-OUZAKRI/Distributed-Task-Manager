@@ -1,65 +1,110 @@
 version: '3.8'
 
 services:
-  # Service Discovery
+  # Infrastructure Services
   discovery-server:
     image: discovery-server
-    pull_policy: never
+    container_name: discovery-server
     ports:
       - "8761:8761"
+    environment:
+      SERVER_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: discovery-server
+      EUREKA_CLIENT_REGISTER: "false"
+      EUREKA_CLIENT_FETCH: "false"
+      SPRING_PROFILES_ACTIVE: prod
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - microservices-network
 
-  # Base de données
+  # Databases
   auth-db:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: auth-db
     environment:
       POSTGRES_DB: authdb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: toor
     ports:
       - "5433:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - microservices-network
 
   task-db:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: task-db
     environment:
       POSTGRES_DB: taskdb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: toor
     ports:
       - "5434:5432"
+    volumes:
+      - task-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - microservices-network
 
   history-db:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: history-db
     environment:
       POSTGRES_DB: historydb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: toor
     ports:
       - "5435:5432"
+    volumes:
+      - history-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - microservices-network
 
   notification-db:
-    image: postgres:15
+    image: postgres:15-alpine
+    container_name: notification-db
     environment:
       POSTGRES_DB: notificationdb
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: toor
     ports:
       - "5436:5432"
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - microservices-network
 
-  # Kafka
+  # Message Broker
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
     networks:
@@ -67,6 +112,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
     depends_on:
       - zookeeper
     environment:
@@ -76,92 +122,178 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     ports:
       - "29092:29092"
       - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --list --bootstrap-server localhost:9092"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - microservices-network
 
-  # Microservices
+  # Cache
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - microservices-network
+
+  # Application Services
   auth-service:
     image: auth-service
-    pull_policy: never
+    container_name: auth-service
     ports:
       - "3002:3002"
     environment:
+      SERVER_PORT: 3002
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/authdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: toor
+      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      JWT_EXPIRATION_MS: 86400000
     depends_on:
-      - discovery-server
-      - auth-db
+      discovery-server:
+        condition: service_healthy
+      auth-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - microservices-network
 
   task-service:
     image: task-service
-    pull_policy: never
+    container_name: task-service
     ports:
       - "3000:3000"
     environment:
+      SERVER_PORT: 3000
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://task-db:5432/taskdb
-      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: toor
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
-      - discovery-server
-      - task-db
-      - kafka
+      discovery-server:
+        condition: service_healthy
+      task-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - microservices-network
 
   notification-service:
     image: notification-service
-    pull_policy: never
+    container_name: notification-service
     ports:
       - "3003:3003"
     environment:
+      SERVER_PORT: 3003
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
-      SPRING_KAFKA_BOOTSTRAP-SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notificationdb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: toor
     depends_on:
-      - discovery-server
-      - kafka
+      discovery-server:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      notification-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3003/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - microservices-network
 
   history-service:
     image: history-service
-    pull_policy: never
+    container_name: history-service
     ports:
       - "3001:3001"
     environment:
+      SERVER_PORT: 3001
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://history-db:5432/historydb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: toor
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
-      - discovery-server
-      - history-db
+      discovery-server:
+        condition: service_healthy
+      history-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - microservices-network
 
   gateway-service:
     image: gateway-service
-    pull_policy: never
+    container_name: gateway-service
     ports:
       - "8080:8080"
     environment:
+      SERVER_PORT: 8080
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      REDIS_HOST: redis
+      JWT_ISSUER_URI: http://auth-service:3002
+      JWT_JWKS_URI: http://auth-service:3002/api/auth/.well-known/jwks.json
+      RATE_LIMIT_REPLENISH: 10
+      RATE_LIMIT_BURST: 20
     depends_on:
-      - discovery-server
-      - auth-service
-      - task-service
+      discovery-server:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - microservices-network
 
-  # Redis pour Rate Limiting
-  redis:
-    image: redis:alpine
-    ports:
-      - "6379:6379"
-    networks:
-      - microservices-network
+volumes:
+  auth-db-data:
+  task-db-data:
+  history-db-data:
+  notification-db-data:
+  redis-data:
 
 networks:
   microservices-network:
