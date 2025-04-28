@@ -32,12 +32,16 @@ build/
 ### VS Code ###
 .vscode/
 
-# Environment files  
-.env  
-.env.local  
-.env.development.local  
-.env.test.local  
-.env.production.local  
-.env.development  
-.env.test  
-.env.production  
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development
+.env.test
+.env.production
+
+.mvn/
+mvnw
+mvnw.cmd
