@@ -6,6 +6,7 @@
 		<groupId>com.dev.oussama</groupId>
 		<artifactId>distributed-task-manager</artifactId>
 		<version>1.0.0</version>
+		<relativePath>../pom.xml</relativePath>
 	</parent>
 
 	<artifactId>gateway-service</artifactId>

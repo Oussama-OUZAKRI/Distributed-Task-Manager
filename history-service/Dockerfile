@@ -1,27 +1,26 @@
-# Dockerfile générique pour les microservices Spring Boot
-FROM eclipse-temurin:17-jdk-alpine AS builder
+# Dockerfile for discovery-server
+FROM maven:3.8.5-openjdk-17 AS builder
 
-# Copier le cache Maven avec la shared-library
-COPY --from=shared-library:latest /root/.m2 /root/.m2
+# Copy entire project structure
+WORKDIR /workspace
+COPY .. .
 
-# Étape de build
-WORKDIR /app
-COPY .mvn/ .mvn
-COPY mvnw pom.xml ./
-RUN ./mvnw dependency:go-offline
-COPY src ./src
-RUN ./mvnw clean package -DskipTests
+# Install parent POM first (from root directory)
+WORKDIR /workspace
+RUN mvn install -N
 
-# Étape d'exécution
+# First build shared-library
+WORKDIR /workspace/shared-library
+RUN mvn clean install -DskipTests
+
+# Build discovery-server
+WORKDIR /workspace/history-service
+RUN mvn clean package -DskipTests
+
+# Runtime stage
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
+COPY --from=builder /workspace/history-service/target/*.jar app.jar
 
-# Copie du JAR depuis l'étape de build
-COPY --from=builder /app/target/*.jar app.jar
-
-# Optimisations pour Spring Boot
-ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
 EXPOSE 3001
-
-# Commande de démarrage avec paramètres supplémentaires
-ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -16,8 +16,8 @@ build_services() {
 
   echo "Building all microservices..."
   for service in "${SERVICES[@]}"; do
-      echo "📦 Building $service..."
-      docker build -t $service ./$service || exit 1
+    echo "Building $service..."
+    docker build -t $service -f $service/Dockerfile . || exit 1
   done
 }
 

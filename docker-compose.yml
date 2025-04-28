@@ -134,7 +134,7 @@ services:
   history-service:
     build: ./history-service
     ports:
-      - "3002:3002"
+      - "3001:3001"
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
       SPRING_DATASOURCE_URL: jdbc:postgresql://history-db:5432/historydb
