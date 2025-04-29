@@ -27,20 +27,35 @@ public class NotificationService {
   private final NotificationConfig config;
   private final NotificationRepository notificationRepository;
 
-  private static final Logger logger = LoggerFactory.getLogger(NotificationService.class); 
+  private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
 
   @Async
   public void sendNotification(String userId, String message) {
-    websocketTemplate.convertAndSendToUser(userId, "/queue/notifications", message);
+    boolean websocketDelivered = false;
+    boolean emailDelivered = false;
+    
+    try {
+      websocketTemplate.convertAndSendToUser(userId, "/queue/notifications", message);
+      websocketDelivered = true;
+    } catch (Exception e) {
+      logger.error("Erreur WebSocket pour {}", userId, e);
+    }
+    
+    try {
+      sendEmailNotification(userId, message);
+      emailDelivered = true;
+    } catch (MessagingException e) {
+      logger.error("Erreur email pour {}", userId, e);
+    }
+    
     Notification notification = Notification.builder()
         .userId(userId)
         .message(message)
         .timestamp(Instant.now())
-        .delivered(true)
+        .delivered(websocketDelivered || emailDelivered)
         .build();
+    
     notificationRepository.save(notification);
-    sendEmailNotification(userId, message);
-    logger.info("Notification envoyée à {} : {}", userId, message);
   }
 
   private void sendEmailNotification(String userId, String message) {

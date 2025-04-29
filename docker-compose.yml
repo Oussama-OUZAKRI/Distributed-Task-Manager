@@ -11,6 +11,7 @@ services:
       - .env
     environment:
       SERVER_PORT: 8761
+      EUREKA_SERVER: ${EUREKA_URL}
       EUREKA_INSTANCE_HOSTNAME: discovery-server
       EUREKA_CLIENT_REGISTER: "false"
       EUREKA_CLIENT_FETCH: "false"
@@ -20,6 +21,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -42,6 +44,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -63,6 +66,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -84,6 +88,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -105,6 +110,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -117,6 +123,12 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     ports:
       - "2181:2181"
+    healthcheck:
+      test: ["CMD", "echo", "ruok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - microservices-network
 
@@ -124,7 +136,8 @@ services:
     image: confluentinc/cp-kafka:7.4.0
     container_name: kafka
     depends_on:
-      - zookeeper
+      zookeeper:
+        condition: service_healthy
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
@@ -142,6 +155,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     networks:
       - microservices-network
 
@@ -159,6 +173,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -188,6 +203,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -217,6 +233,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -250,6 +267,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -279,6 +297,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - microservices-network
 
@@ -309,6 +328,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - microservices-network
 

@@ -22,6 +22,10 @@ FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
+# Installer curl
+USER root
+RUN apk add --no-cache curl
+
 # Créer un utilisateur d'exécution sécurisé
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
