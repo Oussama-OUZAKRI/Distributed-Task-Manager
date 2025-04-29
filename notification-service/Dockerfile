@@ -1,26 +1,38 @@
-# Dockerfile for discovery-server
-FROM maven:3.8.5-openjdk-17 AS builder
+# --------------------- BUILD STAGE ---------------------
+FROM maven:3.9-eclipse-temurin-17 AS builder
 
-# Copy entire project structure
-WORKDIR /workspace
-COPY .. .
+# Set working directory
+WORKDIR /build
 
-# Install parent POM first (from root directory)
-WORKDIR /workspace
+# Copy only the parent POM
+COPY pom.xml .
+
+# Install parent POM (install dans le repo local ~/.m2)
 RUN mvn install -N
 
-# First build shared-library
-WORKDIR /workspace/shared-library
-RUN mvn clean install -DskipTests
+# Copy shared-library (indispensable pour tous les services)
+COPY shared-library ./shared-library
+RUN mvn install -f shared-library/pom.xml -DskipTests
 
-# Build discovery-server
-WORKDIR /workspace/notification-service
+# Copy notification-service sources and its pom
+COPY notification-service ./notification-service
+
+# Build notification-service
+WORKDIR /build/notification-service
 RUN mvn clean package -DskipTests
 
-# Runtime stage
+# --------------------- RUNTIME STAGE ---------------------
 FROM eclipse-temurin:17-jre-alpine
-WORKDIR /app
-COPY --from=builder /workspace/notification-service/target/*.jar app.jar
 
-EXPOSE 3003
+WORKDIR /app
+
+# Créer un utilisateur d'exécution sécurisé
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
+# Only copy the final JAR
+COPY --from=builder /build/notification-service/target/*.jar app.jar
+
+ENV SERVER_PORT=3003
+EXPOSE ${SERVER_PORT}
 ENTRYPOINT ["java", "-jar", "app.jar"]

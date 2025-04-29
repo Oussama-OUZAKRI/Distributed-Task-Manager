@@ -3,16 +3,18 @@ version: '3.8'
 services:
   # Infrastructure Services
   discovery-server:
-    image: discovery-server
+    image: oussama2003/discovery-server:latest
     container_name: discovery-server
     ports:
       - "8761:8761"
+    env_file:
+      - .env
     environment:
       SERVER_PORT: 8761
       EUREKA_INSTANCE_HOSTNAME: discovery-server
       EUREKA_CLIENT_REGISTER: "false"
       EUREKA_CLIENT_FETCH: "false"
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
       interval: 10s
@@ -25,10 +27,12 @@ services:
   auth-db:
     image: postgres:15-alpine
     container_name: auth-db
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: authdb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: toor
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
@@ -44,10 +48,12 @@ services:
   task-db:
     image: postgres:15-alpine
     container_name: task-db
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: taskdb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: toor
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5434:5432"
     volumes:
@@ -63,10 +69,12 @@ services:
   history-db:
     image: postgres:15-alpine
     container_name: history-db
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: historydb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: toor
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5435:5432"
     volumes:
@@ -82,10 +90,12 @@ services:
   notification-db:
     image: postgres:15-alpine
     container_name: notification-db
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: notificationdb
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: toor
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5436:5432"
     volumes:
@@ -154,18 +164,20 @@ services:
 
   # Application Services
   auth-service:
-    image: auth-service
+    image: oussama2003/auth-service:latest
     container_name: auth-service
     ports:
       - "3002:3002"
+    env_file:
+      - .env
     environment:
       SERVER_PORT: 3002
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
-      SPRING_DATASOURCE_URL: jdbc:postgresql://auth-db:5432/authdb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: toor
-      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-      JWT_EXPIRATION_MS: 86400000
+      EUREKA_SERVER: ${EUREKA_URL}
+      DATABASE_URL: jdbc:postgresql://auth-db:5432/authdb
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -180,17 +192,19 @@ services:
       - microservices-network
 
   task-service:
-    image: task-service
+    image: oussama2003/task-service:latest
     container_name: task-service
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       SERVER_PORT: 3000
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
-      SPRING_DATASOURCE_URL: jdbc:postgresql://task-db:5432/taskdb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: toor
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_SERVER: ${EUREKA_URL}
+      DATABASE_URL: jdbc:postgresql://task-db:5432/taskdb
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -207,17 +221,23 @@ services:
       - microservices-network
 
   notification-service:
-    image: notification-service
+    image: oussama2003/notification-service:latest
     container_name: notification-service
     ports:
       - "3003:3003"
+    env_file:
+      - .env
     environment:
       SERVER_PORT: 3003
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SPRING_DATASOURCE_URL: jdbc:postgresql://notification-db:5432/notificationdb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: toor
+      EUREKA_SERVER: ${EUREKA_URL}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP}
+      DATABASE_URL: jdbc:postgresql://notification-db:5432/notificationdb
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_SENDER: ${EMAIL_SENDER}
+      EMAIL_USER: ${EMAIL_USER}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -234,17 +254,19 @@ services:
       - microservices-network
 
   history-service:
-    image: history-service
+    image: oussama2003/history-service:latest
     container_name: history-service
     ports:
       - "3001:3001"
+    env_file:
+      - .env
     environment:
       SERVER_PORT: 3001
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
-      SPRING_DATASOURCE_URL: jdbc:postgresql://history-db:5432/historydb
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: toor
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_SERVER: ${EUREKA_URL}
+      DATABASE_URL: jdbc:postgresql://history-db:5432/historydb
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP}
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -261,13 +283,15 @@ services:
       - microservices-network
 
   gateway-service:
-    image: gateway-service
+    image: oussama2003/gateway-service:latest
     container_name: gateway-service
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       SERVER_PORT: 8080
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka
+      EUREKA_SERVER: ${EUREKA_URL}
       REDIS_HOST: redis
       JWT_ISSUER_URI: http://auth-service:3002
       JWT_JWKS_URI: http://auth-service:3002/api/auth/.well-known/jwks.json

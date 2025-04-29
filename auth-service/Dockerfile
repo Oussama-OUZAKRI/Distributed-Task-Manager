@@ -1,22 +1,34 @@
-# Dockerfile for discovery-server
-FROM maven:3.8.5-openjdk-17 AS builder
+# --------------------- BUILD STAGE ---------------------
+FROM maven:3.9-eclipse-temurin-17 AS builder
 
-# Copy entire project structure
-WORKDIR /workspace
-COPY .. .
+# Set working directory
+WORKDIR /build
 
-# Install parent POM first (from root directory)
-WORKDIR /workspace
+# Copy only the parent POM
+COPY pom.xml .
+
+# Install parent POM (install dans le repo local ~/.m2)
 RUN mvn install -N
 
-# Build discovery-server
-WORKDIR /workspace/auth-service
+# Copy auth-service sources and its pom
+COPY auth-service ./auth-service
+
+# Build auth-service
+WORKDIR /build/auth-service
 RUN mvn clean package -DskipTests
 
-# Runtime stage
+# --------------------- RUNTIME STAGE ---------------------
 FROM eclipse-temurin:17-jre-alpine
-WORKDIR /app
-COPY --from=builder /workspace/auth-service/target/*.jar app.jar
 
-EXPOSE 3002
+WORKDIR /app
+
+# Créer un utilisateur d'exécution sécurisé
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
+# Only copy the final JAR
+COPY --from=builder /build/auth-service/target/*.jar app.jar
+
+ENV SERVER_PORT=3002
+EXPOSE ${SERVER_PORT}
 ENTRYPOINT ["java", "-jar", "app.jar"]
