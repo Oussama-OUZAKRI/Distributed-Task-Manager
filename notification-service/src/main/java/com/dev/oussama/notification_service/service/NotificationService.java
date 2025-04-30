@@ -40,14 +40,10 @@ public class NotificationService {
     } catch (Exception e) {
       logger.error("Erreur WebSocket pour {}", userId, e);
     }
-    
-    try {
-      sendEmailNotification(userId, message);
-      emailDelivered = true;
-    } catch (MessagingException e) {
-      logger.error("Erreur email pour {}", userId, e);
-    }
-    
+
+    sendEmailNotification(userId, message);
+    emailDelivered = true;
+
     Notification notification = Notification.builder()
         .userId(userId)
         .message(message)
@@ -57,6 +53,7 @@ public class NotificationService {
     
     notificationRepository.save(notification);
   }
+
 
   private void sendEmailNotification(String userId, String message) {
     try {

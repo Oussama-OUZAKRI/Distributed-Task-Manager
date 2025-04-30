@@ -11,7 +11,7 @@ public class RateLimiterConfig {
     
     @Bean
     public KeyResolver userKeyResolver() {
-        return exchange -> 
+        return exchange ->
             Mono.just(exchange.getRequest().getHeaders().getFirst("X-User-ID"))
                 .defaultIfEmpty("anonymous");
     }

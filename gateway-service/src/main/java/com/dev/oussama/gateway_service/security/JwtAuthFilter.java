@@ -21,9 +21,10 @@ public class JwtAuthFilter implements GlobalFilter {
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
     ServerHttpRequest request = exchange.getRequest();
+    String path = request.getPath().value();
     
     // Bypass auth for certain paths
-    if (request.getPath().value().startsWith("/api/auth")) {
+    if (path.startsWith("/api/auth") || path.startsWith("/actuator")) {
       return chain.filter(exchange);
     }
 
